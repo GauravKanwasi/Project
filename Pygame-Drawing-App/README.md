@@ -23,4 +23,4 @@ A simple, interactive drawing application built using Python and Pygame. This pr
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/Pygame-Drawing-App.git
+  [ git clone https://github.com/yourusername/Pygame-Drawing-App.gi](https://github.com/GauravKanwasi/Project/tree/main/Pygame-Drawing-App)t
