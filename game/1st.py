@@ -70,8 +70,13 @@ class Player(pygame.sprite.Sprite):
         self.lives = 3
         self.invincible = False
         self.invincibility_timer = 0
+        self.current_platform = None
         
     def update(self):
+        # Move with platform if standing on one
+        if self.current_platform is not None:
+            self.rect.x += self.current_platform.velocity
+        
         # Horizontal movement
         keys = pygame.key.get_pressed()
         self.velocity_x = 0
@@ -124,30 +129,68 @@ class Enemy(pygame.sprite.Sprite):
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
             self.kill()
 
+class JumpingEnemy(Enemy):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.velocity_y = 0
+        self.jump_power = -10
+        self.gravity = 0.5
+        self.jump_timer = random.randint(60, 120)
+        
+    def update(self):
+        super().update()  # Move horizontally
+        self.jump_timer -= 1
+        if self.jump_timer <= 0:
+            self.velocity_y = self.jump_power
+            self.jump_timer = random.randint(60, 120)
+        self.velocity_y += self.gravity
+        self.rect.y += self.velocity_y
+        if self.rect.bottom > SCREEN_HEIGHT:
+            self.rect.bottom = SCREEN_HEIGHT
+            self.velocity_y = 0
+
 class Platform(pygame.sprite.Sprite):
-    def __init__(self, x, y, width):
+    def __init__(self, x, y, width, velocity=0):
         super().__init__()
         self.image = pygame.transform.scale(platform_img, (width, 20))
         self.rect = self.image.get_rect(topleft=(x, y))
+        self.velocity = velocity
+        
+    def update(self):
+        if self.velocity != 0:
+            self.rect.x += self.velocity
+            if self.rect.left < 0 or self.rect.right > SCREEN_WIDTH:
+                self.velocity *= -1
+
+class PowerUp(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.image = pygame.Surface((20, 20))
+        self.image.fill((255, 255, 0))
+        self.rect = self.image.get_rect(center=(x, y))
+        self.type = "invincibility"
 
 # Game setup
 all_sprites = pygame.sprite.Group()
 coins = pygame.sprite.Group()
 enemies = pygame.sprite.Group()
 platforms = pygame.sprite.Group()
+power_ups = pygame.sprite.Group()
 
 # Create player
 player = Player()
 all_sprites.add(player)
 
-# Create platforms
+# Create platforms with some moving
 platform_layout = [
-    (100, 400, 200),
-    (400, 300, 150),
-    (600, 450, 180)
+    (50, 500, 150, 0),   # Static
+    (250, 400, 100, 2),  # Moving right
+    (450, 300, 120, 0),  # Static
+    (650, 200, 100, -3), # Moving left
+    (100, 100, 150, 0),  # Static
 ]
-for x, y, width in platform_layout:
-    platform = Platform(x, y, width)
+for x, y, width, velocity in platform_layout:
+    platform = Platform(x, y, width, velocity)
     all_sprites.add(platform)
     platforms.add(platform)
 
@@ -196,17 +239,33 @@ while running:
     
     # Platform collision
     platform_hits = pygame.sprite.spritecollide(player, platforms, False)
+    player.on_ground = False  # Reset each frame
     for platform in platform_hits:
-        if player.velocity_y > 0 and player.rect.bottom <= platform.rect.bottom:
+        if player.rect.bottom > platform.rect.top and player.rect.top < platform.rect.bottom and player.velocity_y >= 0:
             player.rect.bottom = platform.rect.top
             player.velocity_y = 0
             player.on_ground = True
-            
+            player.current_platform = platform
+            break
+    else:
+        player.current_platform = None
+    
     # Spawn enemies
     if random.random() < 0.02:
-        enemy = Enemy(random.choice([0, SCREEN_WIDTH]), SCREEN_HEIGHT-30)
+        if random.random() < 0.5:
+            enemy = Enemy(random.choice([0, SCREEN_WIDTH]), SCREEN_HEIGHT-30)
+        else:
+            enemy = JumpingEnemy(random.choice([0, SCREEN_WIDTH]), SCREEN_HEIGHT-30)
         all_sprites.add(enemy)
         enemies.add(enemy)
+        
+    # Spawn power-ups
+    if random.random() < 0.005:
+        x = random.randint(0, SCREEN_WIDTH)
+        y = random.randint(50, SCREEN_HEIGHT-50)
+        power_up = PowerUp(x, y)
+        all_sprites.add(power_up)
+        power_ups.add(power_up)
         
     # Coin collection
     collected_coins = pygame.sprite.spritecollide(player, coins, True)
@@ -217,6 +276,14 @@ while running:
         coin = Coin(random.randint(0, SCREEN_WIDTH), random.randint(50, SCREEN_HEIGHT-50))
         all_sprites.add(coin)
         coins.add(coin)
+        
+    # Power-up collection
+    power_up_hits = pygame.sprite.spritecollide(player, power_ups, True)
+    for power_up in power_up_hits:
+        if power_up.type == "invincibility":
+            player.invincible = True
+            player.invincibility_timer = 600  # 10 seconds at 60 FPS
+            coin_sound.play()  # Reuse coin sound; replace if desired
         
     # Enemy collision
     if not player.invincible:
