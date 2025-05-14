@@ -128,39 +128,54 @@ def main():
     
     while True:
         display_cube(cube)
-        command = input("\nEnter move (e.g., F, U', R2), 'scramble', 'reset', 'solve', or 'quit': ").strip()
+        commands = input("\nEnter move(s) (e.g., F U' R2) or command (scramble, reset, solve, quit): ").strip().split()
         
-        if command == 'quit':
-            print("Goodbye!")
-            break
-        elif command == 'reset':
-            cube = create_solved_cube()
-            print("Cube reset to solved state.")
-        elif command == 'scramble':
-            scramble_moves = [random.choice(basic_moves) for _ in range(20)]
-            for move in scramble_moves:
-                cube = moves_dict[move](cube)
-            print("Cube scrambled.")
-        elif command == 'solve':
-            print("Solver not implemented yet. Here's a hint: Try solving the bottom cross first!")
-            # Future implementation can go here
-        else:
-            # Parse the move
-            if command in moves_dict:
-                cube = moves_dict[command](cube)
-            elif len(command) == 2 and command[0] in moves_dict and command[1] == "'":
-                move = command[0]
-                # Counterclockwise = 3 clockwise turns
-                for _ in range(3):
+        if len(commands) == 1:
+            command = commands[0]
+            if command == 'quit':
+                print("Goodbye!")
+                break
+            elif command == 'reset':
+                cube = create_solved_cube()
+                print("Cube reset to solved state.")
+            elif command == 'scramble':
+                scramble_moves = [random.choice(basic_moves) for _ in range(20)]
+                for move in scramble_moves:
                     cube = moves_dict[move](cube)
-            elif len(command) == 2 and command[0] in moves_dict and command[1] == '2':
-                move = command[0]
-                # 180 degrees = 2 clockwise turns
-                for _ in range(2):
-                    cube = moves_dict[move](cube)
+                print("Cube scrambled.")
+            elif command == 'solve':
+                print("Solver not implemented yet. Here's a hint: Try solving the bottom cross first!")
             else:
-                print("Invalid command. Use moves like F, U', R2, or commands like scramble/reset/quit/solve.")
-        print()  # Add a newline for smooth readability
+                # Single move
+                if command in moves_dict:
+                    cube = moves_dict[command](cube)
+                elif len(command) == 2 and command[0] in moves_dict and command[1] == "'":
+                    move = command[0]
+                    for _ in range(3):
+                        cube = moves_dict[move](cube)
+                elif len(command) == 2 and command[0] in moves_dict and command[1] == '2':
+                    move = command[0]
+                    for _ in range(2):
+                        cube = moves_dict[move](cube)
+                else:
+                    print("Invalid move or command.")
+        else:
+            # Sequence of moves
+            for command in commands:
+                if command in moves_dict:
+                    cube = moves_dict[command](cube)
+                elif len(command) == 2 and command[0] in moves_dict and command[1] == "'":
+                    move = command[0]
+                    for _ in range(3):
+                        cube = moves_dict[move](cube)
+                elif len(command) == 2 and command[0] in moves_dict and command[1] == '2':
+                    move = command[0]
+                    for _ in range(2):
+                        cube = moves_dict[move](cube)
+                else:
+                    print(f"Invalid move: {command}")
+                    break  # Stop applying further moves
+        print()  # Add a newline for readability
 
 if __name__ == "__main__":
     main()
