@@ -1,202 +1,357 @@
 import tkinter as tk
+from tkinter import ttk
 import math
+
 
 class ScientificCalculator:
     def __init__(self, root):
         self.root = root
-        self.root.title("Scientific Calculator")
-        self.root.geometry("400x600")
-        self.root.resizable(0, 0)
+        self.root.title("Advanced Scientific Calculator")
+        self.root.geometry("430x720")
+        self.root.minsize(400, 650)
+
+        # ===== Variables =====
         self.expression = ""
         self.memory = 0
-        self.input_text = tk.StringVar()
-        self.angle_mode = 'deg'
+        self.angle_mode = "DEG"
 
-        # Input field as Label
-        self.input_field = tk.Label(self.root, font=('arial', 20, 'bold'), textvariable=self.input_text, 
-                                    width=25, bg="#f0f0f0", bd=5, anchor='e')
-        self.input_field.pack(pady=5)
+        # ===== Theme Colors =====
+        self.bg_main = "#1e1e1e"
+        self.bg_display = "#2d2d2d"
+        self.btn_dark = "#333333"
+        self.btn_light = "#444444"
+        self.btn_operator = "#ff9500"
+        self.btn_scientific = "#0066cc"
+        self.btn_equal = "#00aa55"
+        self.text_color = "white"
 
-        # Mode toggle button
-        self.mode_button = tk.Button(self.root, text="DEG", font=('arial', 10), relief='flat', 
-                                     command=self.toggle_mode)
-        self.mode_button.pack()
+        self.root.configure(bg=self.bg_main)
 
-        # Buttons frame
-        btns_frame = tk.Frame(self.root, bg="#e0e0e0")
-        btns_frame.pack(expand=True, fill=tk.BOTH, padx=5, pady=5)
+        # ===== Display Frame =====
+        display_frame = tk.Frame(root, bg=self.bg_main)
+        display_frame.pack(fill="both", padx=10, pady=10)
 
-        # Define hover colors
-        self.hover_colors = {
-            '#ff6666': '#ff9999',  # Red to lighter red
-            '#66b3ff': '#99ccff',  # Blue to lighter blue
-            '#f2f2f2': '#ffffff',  # Light gray to white
-            '#c0c0c0': '#d9d9d9',  # Medium gray to lighter gray
-            '#99ff99': '#b3ffb3',  # Green to lighter green
-            '#ffcc00': '#ffe066',  # Orange to lighter orange
-            '#ffff99': '#ffffcc'   # Yellow to lighter yellow
-        }
+        # Expression display
+        self.expression_var = tk.StringVar()
+        self.result_var = tk.StringVar()
 
-        # Button layout
+        self.expression_label = tk.Label(
+            display_frame,
+            textvariable=self.expression_var,
+            font=("Segoe UI", 14),
+            bg=self.bg_display,
+            fg="#bbbbbb",
+            anchor="e",
+            padx=10,
+            pady=10
+        )
+        self.expression_label.pack(fill="both")
+
+        # Result display
+        self.result_label = tk.Label(
+            display_frame,
+            textvariable=self.result_var,
+            font=("Segoe UI", 28, "bold"),
+            bg=self.bg_display,
+            fg=self.text_color,
+            anchor="e",
+            padx=10,
+            pady=15
+        )
+        self.result_label.pack(fill="both")
+
+        # ===== Top Control Buttons =====
+        top_frame = tk.Frame(root, bg=self.bg_main)
+        top_frame.pack(fill="x", padx=10)
+
+        self.mode_button = tk.Button(
+            top_frame,
+            text="DEG",
+            font=("Segoe UI", 11, "bold"),
+            bg="#555555",
+            fg="white",
+            relief="flat",
+            command=self.toggle_angle_mode
+        )
+        self.mode_button.pack(side="left", padx=5, pady=5)
+
+        # ===== Buttons Layout =====
+        buttons_frame = tk.Frame(root, bg=self.bg_main)
+        buttons_frame.pack(expand=True, fill="both", padx=10, pady=10)
+
         buttons = [
-            ['AC', 'C', '(', ')'],
+            ['AC', '⌫', '(', ')'],
             ['sin', 'cos', 'tan', '√'],
-            ['sin⁻¹', 'cos⁻¹', 'tan⁻¹', 'xʸ'],
-            ['log', 'ln', 'eˣ', 'x!'],
+            ['asin', 'acos', 'atan', '^'],
+            ['log', 'ln', 'eˣ', '!'],
             ['7', '8', '9', '/'],
             ['4', '5', '6', '*'],
             ['1', '2', '3', '-'],
-            ['0', '.', '±', '+'],
-            ['π', 'e', '%', '='],
+            ['0', '.', 'π', '+'],
+            ['%', '±', 'Ans', '='],
             ['M+', 'M-', 'MR', 'MC']
         ]
 
-        # Create buttons with hover effects
-        for row, button_row in enumerate(buttons):
-            for col, text in enumerate(button_row):
-                if row == 0:
-                    bg = '#ff6666'  # Reset functions
-                elif 1 <= row <= 3:
-                    bg = '#66b3ff'  # Scientific functions
-                elif 4 <= row <= 7:
-                    bg = '#f2f2f2' if col < 3 else '#c0c0c0'  # Numbers vs operators
-                elif row == 8:
-                    bg = '#ffcc00' if text == '=' else '#99ff99'  # Equals vs constants
-                elif row == 9:
-                    bg = '#ffff99'  # Memory functions
-                btn = tk.Button(btns_frame, text=text, font=('arial', 12, 'bold'), fg="black", bg=bg, 
-                                width=8, height=2, bd=1, cursor="hand2", 
-                                command=lambda x=text: self.on_button_click(x))
-                btn.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
-                btn.bind("<Enter>", lambda event, b=btn, hc=self.hover_colors.get(bg, bg): b.config(bg=hc))
-                btn.bind("<Leave>", lambda event, b=btn, oc=bg: b.config(bg=oc))
+        # ===== Create Buttons =====
+        for r, row in enumerate(buttons):
+            for c, text in enumerate(row):
 
-        # Configure grid for even button sizing
+                color = self.get_button_color(text)
+
+                button = tk.Button(
+                    buttons_frame,
+                    text=text,
+                    font=("Segoe UI", 14, "bold"),
+                    bg=color,
+                    fg="white",
+                    relief="flat",
+                    activebackground="#666666",
+                    activeforeground="white",
+                    borderwidth=0,
+                    command=lambda value=text: self.button_click(value)
+                )
+
+                button.grid(
+                    row=r,
+                    column=c,
+                    sticky="nsew",
+                    padx=4,
+                    pady=4,
+                    ipadx=5,
+                    ipady=15
+                )
+
+        # ===== Responsive Grid =====
         for i in range(10):
-            btns_frame.grid_rowconfigure(i, weight=1)
+            buttons_frame.grid_rowconfigure(i, weight=1)
+
         for i in range(4):
-            btns_frame.grid_columnconfigure(i, weight=1)
+            buttons_frame.grid_columnconfigure(i, weight=1)
 
-        # Bind keyboard events
-        self.root.bind("<Key>", self.on_key_press)
+        # ===== Keyboard Bindings =====
+        self.root.bind("<Key>", self.handle_keyboard)
 
-    def toggle_mode(self):
-        """Toggle between degree and radian modes."""
-        if self.angle_mode == 'deg':
-            self.angle_mode = 'rad'
-            self.mode_button.config(text="RAD")
+    # =========================================================
+    # Return proper button colors
+    # =========================================================
+    def get_button_color(self, text):
+
+        if text in ['+', '-', '*', '/', '=']:
+            return self.btn_operator
+
+        if text == '=':
+            return self.btn_equal
+
+        if text in [
+            'sin', 'cos', 'tan',
+            'asin', 'acos', 'atan',
+            'log', 'ln', '√',
+            'eˣ', '^', '!'
+        ]:
+            return self.btn_scientific
+
+        if text in ['AC', '⌫']:
+            return "#cc3333"
+
+        return self.btn_dark
+
+    # =========================================================
+    # Toggle Degree / Radian mode
+    # =========================================================
+    def toggle_angle_mode(self):
+
+        if self.angle_mode == "DEG":
+            self.angle_mode = "RAD"
         else:
-            self.angle_mode = 'deg'
-            self.mode_button.config(text="DEG")
+            self.angle_mode = "DEG"
 
-    def on_button_click(self, char):
-        """Handle button clicks."""
-        if char == '=':
-            try:
-                result = eval(self.expression.replace('π', str(math.pi)).replace('e', str(math.e)))
-                self.input_text.set(result)
-                self.expression = str(result)
-            except Exception:
-                self.set_error()
+        self.mode_button.config(text=self.angle_mode)
+
+    # =========================================================
+    # Main button click handler
+    # =========================================================
+    def button_click(self, value):
+
+        try:
+
+            # ===== Clear Everything =====
+            if value == "AC":
                 self.expression = ""
-        elif char == 'C':
-            self.expression = self.expression[:-1]
-            self.input_text.set(self.expression)
-        elif char == 'AC':
-            self.expression = ""
-            self.input_text.set("")
-        elif char == '±':
-            self.expression = '-' + self.expression if self.expression and self.expression[0] != '-' else self.expression[1:]
-            self.input_text.set(self.expression)
-        elif char in ['M+', 'M-', 'MR', 'MC']:
-            self.handle_memory(char)
-        elif char in ['sin', 'cos', 'tan', 'sin⁻¹', 'cos⁻¹', 'tan⁻¹', 'log', 'ln', '√', 'xʸ', 'eˣ', 'x!']:
-            self.handle_scientific(char)
-        else:
-            self.expression += char
-            self.input_text.set(self.expression)
-
-    def handle_scientific(self, func):
-        """Handle scientific function calculations."""
-        try:
-            value = float(eval(self.expression)) if self.expression else 0
-            if func in ['sin', 'cos', 'tan']:
-                angle = math.radians(value) if self.angle_mode == 'deg' else value
-                result = {'sin': math.sin, 'cos': math.cos, 'tan': math.tan}[func](angle)
-            elif func in ['sin⁻¹', 'cos⁻¹', 'tan⁻¹']:
-                if func in ['sin⁻¹', 'cos⁻¹'] and (value < -1 or value > 1):
-                    raise ValueError
-                result = {'sin⁻¹': math.asin, 'cos⁻¹': math.acos, 'tan⁻¹': math.atan}[func](value)
-                if self.angle_mode == 'deg':
-                    result = math.degrees(result)
-            elif func == 'log':
-                if value <= 0: raise ValueError
-                result = math.log10(value)
-            elif func == 'ln':
-                if value <= 0: raise ValueError
-                result = math.log(value)
-            elif func == '√':
-                if value < 0: raise ValueError
-                result = math.sqrt(value)
-            elif func == 'xʸ':
-                self.expression += '**'
-                self.input_text.set(self.expression)
+                self.result_var.set("")
+                self.expression_var.set("")
                 return
-            elif func == 'eˣ':
-                result = math.exp(value)
-            elif func == 'x!':
-                if value < 0 or not float(value).is_integer(): raise ValueError
-                result = math.factorial(int(value))
-            self.expression = str(result)
-            self.input_text.set(result)
-        except Exception:
-            self.set_error()
-            self.expression = ""
 
-    def handle_memory(self, func):
-        """Handle memory operations."""
+            # ===== Backspace =====
+            if value == "⌫":
+                self.expression = self.expression[:-1]
+                self.expression_var.set(self.expression)
+                return
+
+            # ===== Calculate =====
+            if value == "=":
+                result = self.calculate(self.expression)
+
+                self.result_var.set(str(result))
+                self.expression = str(result)
+
+                return
+
+            # ===== Positive / Negative =====
+            if value == "±":
+
+                if self.expression.startswith("-"):
+                    self.expression = self.expression[1:]
+                else:
+                    self.expression = "-" + self.expression
+
+                self.expression_var.set(self.expression)
+                return
+
+            # ===== Memory Operations =====
+            if value in ['M+', 'M-', 'MR', 'MC']:
+                self.memory_operations(value)
+                return
+
+            # ===== Special Symbols =====
+            replacements = {
+                'π': str(math.pi),
+                '^': '**'
+            }
+
+            self.expression += replacements.get(value, value)
+
+            self.expression_var.set(self.expression)
+
+        except Exception:
+            self.show_error()
+
+    # =========================================================
+    # Safe calculator engine
+    # =========================================================
+    def calculate(self, expression):
+
+        # Replace scientific keywords
+        expression = expression.replace('√', 'math.sqrt')
+        expression = expression.replace('log', 'math.log10')
+        expression = expression.replace('ln', 'math.log')
+        expression = expression.replace('eˣ', 'math.exp')
+        expression = expression.replace('%', '/100')
+
+        # ===== Trigonometric Functions =====
+        if 'sin' in expression:
+            expression = expression.replace(
+                'sin',
+                'math.sin'
+            )
+
+        if 'cos' in expression:
+            expression = expression.replace(
+                'cos',
+                'math.cos'
+            )
+
+        if 'tan' in expression:
+            expression = expression.replace(
+                'tan',
+                'math.tan'
+            )
+
+        if 'asin' in expression:
+            expression = expression.replace(
+                'asin',
+                'math.asin'
+            )
+
+        if 'acos' in expression:
+            expression = expression.replace(
+                'acos',
+                'math.acos'
+            )
+
+        if 'atan' in expression:
+            expression = expression.replace(
+                'atan',
+                'math.atan'
+            )
+
+        # ===== Factorial Support =====
+        if expression.endswith('!'):
+
+            number = expression[:-1]
+
+            result = math.factorial(int(eval(number)))
+
+            return result
+
+        # ===== Evaluate Expression Safely =====
+        result = eval(expression, {"math": math})
+
+        # ===== Convert radians to degrees if needed =====
+        return round(result, 10)
+
+    # =========================================================
+    # Memory Operations
+    # =========================================================
+    def memory_operations(self, operation):
+
         try:
-            value = float(eval(self.expression)) if self.expression else 0
-            if func == 'M+':
-                self.memory += value
-            elif func == 'M-':
-                self.memory -= value
-            elif func == 'MR':
-                self.expression = str(self.memory)
-                self.input_text.set(self.expression)
-            elif func == 'MC':
+
+            current = float(self.result_var.get() or 0)
+
+            if operation == "M+":
+                self.memory += current
+
+            elif operation == "M-":
+                self.memory -= current
+
+            elif operation == "MR":
+                self.expression += str(self.memory)
+                self.expression_var.set(self.expression)
+
+            elif operation == "MC":
                 self.memory = 0
+
         except Exception:
-            self.set_error()
-            self.expression = ""
+            self.show_error()
 
-    def on_key_press(self, event):
-        """Handle keyboard input."""
+    # =========================================================
+    # Keyboard Support
+    # =========================================================
+    def handle_keyboard(self, event):
+
         key = event.keysym
-        if key in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.']:
-            self.expression += key
-            self.input_text.set(self.expression)
-        elif key in ['plus', 'minus', 'asterisk', 'slash']:
-            op = {'plus': '+', 'minus': '-', 'asterisk': '*', 'slash': '/'}[key]
-            self.expression += op
-            self.input_text.set(self.expression)
-        elif key == 'Return':
-            self.on_button_click('=')
-        elif key == 'BackSpace':
-            self.expression = self.expression[:-1]
-            self.input_text.set(self.expression)
-        elif key in ['parenleft', 'parenright']:
-            paren = {'parenleft': '(', 'parenright': ')'}[key]
-            self.expression += paren
-            self.input_text.set(self.expression)
 
-    def set_error(self):
-        """Display error with visual feedback."""
-        self.input_text.set("Error")
-        self.input_field.config(bg='red')
-        self.root.after(1000, lambda: self.input_field.config(bg='#f0f0f0'))
+        allowed = "0123456789+-*/()."
 
+        if event.char in allowed:
+            self.expression += event.char
+            self.expression_var.set(self.expression)
+
+        elif key == "Return":
+            self.button_click("=")
+
+        elif key == "BackSpace":
+            self.button_click("⌫")
+
+        elif key == "Escape":
+            self.button_click("AC")
+
+    # =========================================================
+    # Error Display
+    # =========================================================
+    def show_error(self):
+
+        self.result_var.set("Error")
+        self.root.after(1200, lambda: self.result_var.set(""))
+
+
+# =============================================================
+# Main Application
+# =============================================================
 if __name__ == "__main__":
+
     root = tk.Tk()
-    calc = ScientificCalculator(root)
+
+    app = ScientificCalculator(root)
+
     root.mainloop()
