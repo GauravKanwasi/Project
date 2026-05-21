@@ -1,437 +1,414 @@
-PDF_FILE_TEMPLATE = """
-%PDF-1.6
+from dataclasses import dataclass
 
-% Root
+PDF_TEMPLATE = r"""
+%PDF-1.7
+
 1 0 obj
 <<
-  /AcroForm <<
-    /Fields [ ###FIELD_LIST### ]
-  >>
-  /Pages 2 0 R
-  /OpenAction 17 0 R
-  /Type /Catalog
+/Type /Catalog
+/Pages 2 0 R
+/OpenAction 5 0 R
 >>
 endobj
 
 2 0 obj
 <<
-  /Count 1
-  /Kids [ 16 0 R ]
-  /Type /Pages
->>
-
-% Annots Page 1
-21 0 obj
-[ ###FIELD_LIST### ]
-endobj
-
-###FIELDS###
-
-% Page 1
-16 0 obj
-<<
-  /Annots 21 0 R
-  /Contents 3 0 R
-  /CropBox [ 0.0 0.0 612.0 792.0 ]
-  /MediaBox [ 0.0 0.0 612.0 792.0 ]
-  /Parent 2 0 R
-  /Resources << >>
-  /Rotate 0
-  /Type /Page
+/Type /Pages
+/Count 1
+/Kids [3 0 R]
 >>
 endobj
 
 3 0 obj
-<< >>
-stream
-endstream
-endobj
-
-17 0 obj
 <<
-  /JS 42 0 R
-  /S /JavaScript
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 900 700]
+/Resources <<
+>>
+/Annots [###FIELDS###]
+/Contents 4 0 R
 >>
 endobj
 
-42 0 obj
-<< >>
+4 0 obj
+<< /Length 0 >>
 stream
-// Safer setInterval
-function setInterval(cb, ms) {
-    try {
-        return app.setInterval("try { (" + cb.toString() + ")(); } catch(e) { /* Silent error */ }", ms);
-    } catch (e) {
-        app.alert("Failed to set interval: " + e);
-        return null;
-    }
-}
-
-// Game variables
-var gridSize = 20;
-var gridWidth = ###GRID_WIDTH###;
-var gridHeight = ###GRID_HEIGHT###;
-var playerPaddle = { y: 8, height: 3 };
-var aiPaddle = { y: 8, height: 3 };
-var ball = { x: 10, y: 10, dx: 1, dy: 1 };
-var playerScore = 0;
-var aiScore = 0;
-var gameInterval = null;
-var isPaused = false;
-var gridFields = [];
-
-// Cache grid field references
-for (var x = 0; x < gridWidth; x++) {
-    gridFields[x] = [];
-    for (var y = 0; y < gridHeight; y++) {
-        gridFields[x][y] = this.getField(`P_${x}_${y}`);
-    }
-}
-
-// Initialize game
-initGame();
-
-function initGame() {
-    resetGame();
-    renderFullGrid();
-    this.getField("B_start").focus();
-}
-
-function resetGame() {
-    playerPaddle.y = 8;
-    aiPaddle.y = 8;
-    ball.x = 10;
-    ball.y = 10;
-    ball.dx = 1;
-    ball.dy = 1;
-    playerScore = 0;
-    aiScore = 0;
-    isPaused = false;
-    if (gameInterval) {
-        app.clearInterval(gameInterval);
-        gameInterval = null;
-    }
-    this.getField("T_player_score").value = "Player: 0";
-    this.getField("T_ai_score").value = "AI: 0";
-    this.getField("B_restart").display = display.hidden;
-    this.getField("B_pause").display = display.hidden;
-    this.getField("B_resume").display = display.hidden;
-    this.getField("B_start").display = display.visible;
-}
-
-function startGame() {
-    if (!gameInterval) {
-        gameInterval = setInterval(gameLoop, 100); // 100ms for smoothness
-    }
-    isPaused = false;
-    this.getField("B_start").display = display.hidden;
-    this.getField("B_pause").display = display.visible;
-}
-
-function pauseGame() {
-    isPaused = !isPaused;
-    this.getField("B_pause").display = isPaused ? display.hidden : display.visible;
-    this.getField("B_resume").display = isPaused ? display.visible : display.hidden;
-}
-
-function gameLoop() {
-    if (isPaused) return;
-    try {
-        // Move ball
-        ball.x += ball.dx;
-        ball.y += ball.dy;
-
-        // Wall collisions
-        if (ball.y <= 0 || ball.y >= gridHeight - 1) {
-            ball.dy = -ball.dy;
-            ball.y = Math.max(0, Math.min(gridHeight - 1, ball.y));
-        }
-
-        // Paddle collisions
-        if (ball.x <= 1 && ball.y >= playerPaddle.y && ball.y < playerPaddle.y + playerPaddle.height) {
-            ball.dx = 1;
-            ball.x = 1;
-        } else if (ball.x >= gridWidth - 2 && ball.y >= aiPaddle.y && ball.y < aiPaddle.y + aiPaddle.height) {
-            ball.dx = -1;
-            ball.x = gridWidth - 2;
-        }
-
-        // Scoring
-        if (ball.x < 0) {
-            aiScore++;
-            resetBall();
-            this.getField("T_ai_score").value = "AI: " + aiScore;
-        } else if (ball.x >= gridWidth) {
-            playerScore++;
-            resetBall();
-            this.getField("T_player_score").value = "Player: " + playerScore;
-        }
-
-        // AI movement
-        var targetY = ball.y - 1;
-        aiPaddle.y += (targetY - aiPaddle.y) * 0.2; // Smooth tracking
-        aiPaddle.y = Math.max(0, Math.min(gridHeight - aiPaddle.height, Math.round(aiPaddle.y)));
-
-        // Render updates
-        renderChanges();
-    } catch (e) {
-        /* Silent error */
-    }
-}
-
-function resetBall() {
-    ball.x = 10;
-    ball.y = 10;
-    ball.dx = (Math.random() > 0.5 ? 1 : -1);
-    ball.dy = (Math.random() > 0.5 ? 1 : -1);
-}
-
-function renderFullGrid() {
-    for (var x = 0; x < gridWidth; x++) {
-        for (var y = 0; y < gridHeight; y++) {
-            set_pixel(x, y, 0);
-        }
-    }
-    renderPaddles();
-    renderBall();
-}
-
-function renderChanges() {
-    // Clear previous ball position
-    var prevBallX = Math.round(ball.x - ball.dx);
-    var prevBallY = Math.round(ball.y - ball.dy);
-    set_pixel(prevBallX, prevBallY, 0);
-
-    // Update ball and paddles
-    renderBall();
-    renderPaddles();
-}
-
-function renderPaddles() {
-    // Clear paddle columns
-    for (var y = 0; y < gridHeight; y++) {
-        set_pixel(0, y, 0);
-        set_pixel(gridWidth - 1, y, 0);
-    }
-    // Draw player paddle
-    for (var i = 0; i < playerPaddle.height; i++) {
-        var y = Math.round(playerPaddle.y) + i;
-        if (y >= 0 && y < gridHeight) set_pixel(0, y, 1);
-    }
-    // Draw AI paddle
-    for (var i = 0; i < aiPaddle.height; i++) {
-        var y = Math.round(aiPaddle.y) + i;
-        if (y >= 0 && y < gridHeight) set_pixel(gridWidth - 1, y, 1);
-    }
-}
-
-function renderBall() {
-    var ballX = Math.round(ball.x);
-    var ballY = Math.round(ball.y);
-    if (ballX >= 0 && ballX < gridWidth && ballY >= 0 && ballY < gridHeight) {
-        set_pixel(ballX, ballY, 2);
-    }
-}
-
-function onKeyDown(event) {
-    if (event.key === "ArrowUp") {
-        playerPaddle.y = Math.max(0, playerPaddle.y - 1);
-        renderPaddles();
-    } else if (event.key === "ArrowDown") {
-        playerPaddle.y = Math.min(gridHeight - playerPaddle.height, playerPaddle.y + 1);
-        renderPaddles();
-    }
-}
-
-function set_pixel(x, y, state) {
-    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) return;
-    var field = gridFields[x][y];
-    field.fillColor = state === 0 ? color.white : state === 1 ? color.green : color.red;
-}
-
-// Fit page on open
-app.execMenuItem("FitPage");
 endstream
 endobj
 
+5 0 obj
+<<
+/S /JavaScript
+/JS 6 0 R
+>>
+endobj
+
+6 0 obj
+<< /Length ###JS_LEN### >>
+stream
+###JAVASCRIPT###
+endstream
+endobj
+
+###OBJECTS###
+
 trailer
-<< /Root 1 0 R >>
+<<
+/Root 1 0 R
+>>
 %%EOF
 """
 
-PIXEL_OBJ = """
-###IDX### obj
-<<
-  /FT /Btn
-  /Ff 1
-  /MK << /BG [1.0] /BC [0 0 0] >>
-  /Border [0 0 1]
-  /P 16 0 R
-  /Rect [ ###RECT### ]
-  /Subtype /Widget
-  /T (P_###X###_###Y###)
-  /Type /Annot
->>
-endobj
-"""
+PX = 18
+GRID_W = 24
+GRID_H = 16
 
-BUTTON_AP_STREAM = """
-###IDX### obj
+OFFSET_X = 120
+OFFSET_Y = 180
+
+objects = []
+field_refs = []
+obj_id = 10
+
+
+@dataclass
+class ObjRef:
+    id: int
+
+
+def next_id():
+    global obj_id
+    current = obj_id
+    obj_id += 1
+    return current
+
+
+def add_object(content):
+    oid = next_id()
+    objects.append(f"{oid} 0 obj\n{content}\nendobj\n")
+    return oid
+
+
+def rect(x1, y1, x2, y2):
+    return f"[{x1} {y1} {x2} {y2}]"
+
+
+def pixel_field(x, y):
+    rx1 = OFFSET_X + x * PX
+    ry1 = OFFSET_Y + y * PX
+    rx2 = rx1 + PX
+    ry2 = ry1 + PX
+
+    oid = add_object(f"""
 <<
-  /BBox [0.0 0.0 ###WIDTH### ###HEIGHT###]
-  /FormType 1
-  /Matrix [1.0 0.0 0.0 1.0 0.0 0.0]
-  /Resources << /Font << /HeBo 10 0 R >> /ProcSet [/PDF /Text] >>
-  /Subtype /Form
-  /Type /XObject
+/FT /Btn
+/Ff 1
+/Type /Annot
+/Subtype /Widget
+/T (P_{x}_{y})
+/Rect {rect(rx1, ry1, rx2, ry2)}
+/MK << /BG [1 1 1] >>
 >>
+""")
+
+    field_refs.append(f"{oid} 0 R")
+
+
+def button(name, label, x, y, w, h, js):
+    js_stream = add_object(f"""
+<< /Length {len(js)} >>
 stream
-q
-0.75 g
-0 0 ###WIDTH### ###HEIGHT### re
-f
-Q
-q
-1 1 ###WIDTH### ###HEIGHT### re
-W
-n
-BT
-/HeBo 12 Tf
-0 g
-10 8 Td
-(###TEXT###) Tj
-ET
-Q
+{js}
 endstream
-endobj
-"""
+""")
 
-BUTTON_OBJ = """
-###IDX### obj
+    oid = add_object(f"""
 <<
-  /A << /JS ###SCRIPT_IDX### R /S /JavaScript >>
-  /AP << /N ###AP_IDX### R >>
-  /F 4
-  /FT /Btn
-  /Ff 65536
-  /MK << /BG [0.75] /CA (###LABEL###) >>
-  /P 16 0 R
-  /Rect [ ###RECT### ]
-  /Subtype /Widget
-  /T (###NAME###)
-  /Type /Annot
+/FT /Btn
+/Ff 65536
+/Type /Annot
+/Subtype /Widget
+/T ({name})
+/Rect {rect(x, y, x+w, y+h)}
+/MK <<
+    /CA ({label})
+    /BG [0.8 0.8 0.8]
 >>
-endobj
-"""
+/A <<
+    /S /JavaScript
+    /JS {js_stream} 0 R
+>>
+>>
+""")
 
-TEXT_OBJ = """
-###IDX### obj
+    field_refs.append(f"{oid} 0 R")
+
+
+def text_field(name, value, x, y, w, h):
+    oid = add_object(f"""
 <<
-    /AA << /K << /JS ###SCRIPT_IDX### R /S /JavaScript >> >>
-    /F 4
-    /FT /Tx
-    /MK << >>
-    /MaxLen 0
-    /P 16 0 R
-    /Rect [ ###RECT### ]
-    /Subtype /Widget
-    /T (###NAME###)
-    /V (###LABEL###)
-    /Type /Annot
+/FT /Tx
+/Type /Annot
+/Subtype /Widget
+/T ({name})
+/Rect {rect(x, y, x+w, y+h)}
+/V ({value})
 >>
-endobj
+""")
+
+    field_refs.append(f"{oid} 0 R")
+
+
+for x in range(GRID_W):
+    for y in range(GRID_H):
+        pixel_field(x, y)
+
+
+button(
+    "BTN_UP",
+    "UP",
+    120,
+    110,
+    70,
+    40,
+    "movePlayer(-1);"
+)
+
+button(
+    "BTN_DOWN",
+    "DOWN",
+    210,
+    110,
+    70,
+    40,
+    "movePlayer(1);"
+)
+
+button(
+    "BTN_START",
+    "START",
+    350,
+    110,
+    100,
+    40,
+    "startGame();"
+)
+
+button(
+    "BTN_PAUSE",
+    "PAUSE",
+    470,
+    110,
+    100,
+    40,
+    "togglePause();"
+)
+
+text_field(
+    "TXT_SCORE",
+    "Player 0 : 0 AI",
+    620,
+    110,
+    150,
+    40
+)
+
+javascript = f"""
+var W = {GRID_W};
+var H = {GRID_H};
+
+var player = {{
+    y: 6,
+    size: 4
+}};
+
+var ai = {{
+    y: 6,
+    size: 4
+}};
+
+var ball = {{
+    x: Math.floor(W / 2),
+    y: Math.floor(H / 2),
+    dx: 1,
+    dy: 1
+}};
+
+var playerScore = 0;
+var aiScore = 0;
+
+var timer = null;
+var paused = false;
+
+var grid = [];
+
+function initGrid() {{
+    for (var x = 0; x < W; x++) {{
+        grid[x] = [];
+
+        for (var y = 0; y < H; y++) {{
+            grid[x][y] = this.getField("P_" + x + "_" + y);
+        }}
+    }}
+}}
+
+function setPixel(x, y, type) {{
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+
+    var f = grid[x][y];
+
+    if (type == 0)
+        f.fillColor = color.white;
+    else if (type == 1)
+        f.fillColor = color.blue;
+    else
+        f.fillColor = color.red;
+}}
+
+function clearBoard() {{
+    for (var x = 0; x < W; x++) {{
+        for (var y = 0; y < H; y++) {{
+            setPixel(x, y, 0);
+        }}
+    }}
+}}
+
+function drawPaddle(px, py, size) {{
+    for (var i = 0; i < size; i++) {{
+        setPixel(px, py + i, 1);
+    }}
+}}
+
+function drawBall() {{
+    setPixel(ball.x, ball.y, 2);
+}}
+
+function render() {{
+    clearBoard();
+
+    drawPaddle(0, player.y, player.size);
+    drawPaddle(W - 1, ai.y, ai.size);
+
+    drawBall();
+}}
+
+function movePlayer(dir) {{
+    player.y += dir;
+
+    if (player.y < 0)
+        player.y = 0;
+
+    if (player.y > H - player.size)
+        player.y = H - player.size;
+
+    render();
+}}
+
+function updateAI() {{
+    var center = ai.y + Math.floor(ai.size / 2);
+
+    if (ball.y > center)
+        ai.y++;
+
+    if (ball.y < center)
+        ai.y--;
+
+    if (ai.y < 0)
+        ai.y = 0;
+
+    if (ai.y > H - ai.size)
+        ai.y = H - ai.size;
+}}
+
+function resetBall() {{
+    ball.x = Math.floor(W / 2);
+    ball.y = Math.floor(H / 2);
+
+    ball.dx = Math.random() > 0.5 ? 1 : -1;
+    ball.dy = Math.random() > 0.5 ? 1 : -1;
+}}
+
+function updateScore() {{
+    this.getField("TXT_SCORE").value =
+        "Player " + playerScore + " : " + aiScore + " AI";
+}}
+
+function physics() {{
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    if (ball.y <= 0 || ball.y >= H - 1)
+        ball.dy *= -1;
+
+    if (
+        ball.x == 1 &&
+        ball.y >= player.y &&
+        ball.y < player.y + player.size
+    ) {{
+        ball.dx = 1;
+    }}
+
+    if (
+        ball.x == W - 2 &&
+        ball.y >= ai.y &&
+        ball.y < ai.y + ai.size
+    ) {{
+        ball.dx = -1;
+    }}
+
+    if (ball.x < 0) {{
+        aiScore++;
+        updateScore();
+        resetBall();
+    }}
+
+    if (ball.x >= W) {{
+        playerScore++;
+        updateScore();
+        resetBall();
+    }}
+}}
+
+function loop() {{
+
+    if (paused)
+        return;
+
+    physics();
+    updateAI();
+    render();
+}}
+
+function startGame() {{
+
+    if (timer != null)
+        return;
+
+    timer = app.setInterval("loop()", 80);
+}}
+
+function togglePause() {{
+    paused = !paused;
+}}
+
+function init() {{
+    initGrid();
+    render();
+    updateScore();
+}}
+
+init();
 """
 
-STREAM_OBJ = """
-###IDX### obj
-<< >>
-stream
-###CONTENT###
-endstream
-endobj
-"""
+pdf_data = PDF_TEMPLATE
+pdf_data = pdf_data.replace("###FIELDS###", " ".join(field_refs))
+pdf_data = pdf_data.replace("###OBJECTS###", "\n".join(objects))
+pdf_data = pdf_data.replace("###JAVASCRIPT###", javascript)
+pdf_data = pdf_data.replace("###JS_LEN###", str(len(javascript)))
 
-# Configuration
-PX_SIZE = 20
-GRID_WIDTH = 20
-GRID_HEIGHT = 20
-GRID_OFF_X = 100
-GRID_OFF_Y = 150
+with open("enhanced_ping_pong.pdf", "wb") as f:
+    f.write(pdf_data.encode("latin-1"))
 
-fields_text = ""
-field_indexes = []
-obj_idx_ctr = 50
-
-def add_field(field):
-    global fields_text, field_indexes, obj_idx_ctr
-    fields_text += field
-    field_indexes.append(obj_idx_ctr)
-    obj_idx_ctr += 1
-
-# Grid pixels
-for x in range(GRID_WIDTH):
-    for y in range(GRID_HEIGHT):
-        pixel = PIXEL_OBJ
-        pixel = pixel.replace("###IDX###", f"{obj_idx_ctr} 0")
-        pixel = pixel.replace("###RECT###", f"{GRID_OFF_X + x*PX_SIZE} {GRID_OFF_Y + y*PX_SIZE} {GRID_OFF_X + x*PX_SIZE + PX_SIZE} {GRID_OFF_Y + y*PX_SIZE + PX_SIZE}")
-        pixel = pixel.replace("###X###", f"{x}")
-        pixel = pixel.replace("###Y###", f"{y}")
-        add_field(pixel)
-
-def add_button(label, name, x, y, width, height, js):
-    script = STREAM_OBJ
-    script = script.replace("###IDX###", f"{obj_idx_ctr} 0")
-    script = script.replace("###CONTENT###", js)
-    add_field(script)
-
-    ap_stream = BUTTON_AP_STREAM
-    ap_stream = ap_stream.replace("###IDX###", f"{obj_idx_ctr} 0")
-    ap_stream = ap_stream.replace("###TEXT###", label)
-    ap_stream = ap_stream.replace("###WIDTH###", f"{width}")
-    ap_stream = ap_stream.replace("###HEIGHT###", f"{height}")
-    add_field(ap_stream)
-
-    button = BUTTON_OBJ
-    button = button.replace("###IDX###", f"{obj_idx_ctr} 0")
-    button = button.replace("###SCRIPT_IDX###", f"{obj_idx_ctr-2} 0")
-    button = button.replace("###AP_IDX###", f"{obj_idx_ctr-1} 0")
-    button = button.replace("###NAME###", name)
-    button = button.replace("###RECT###", f"{x} {y} {x + width} {y + height}")
-    button = button.replace("###LABEL###", label)
-    add_field(button)
-
-def add_text(label, name, x, y, width, height, js):
-    script = STREAM_OBJ
-    script = script.replace("###IDX###", f"{obj_idx_ctr} 0")
-    script = script.replace("###CONTENT###", js)
-    add_field(script)
-
-    text = TEXT_OBJ
-    text = text.replace("###IDX###", f"{obj_idx_ctr} 0")
-    text = text.replace("###SCRIPT_IDX###", f"{obj_idx_ctr-1} 0")
-    text = text.replace("###LABEL###", label)
-    text = text.replace("###NAME###", name)
-    text = text.replace("###RECT###", f"{x} {y} {x + width} {y + height}")
-    add_field(text)
-
-# Control buttons
-add_button("Up", "B_up", GRID_OFF_X, GRID_OFF_Y - 60, 50, 50, "playerPaddle.y = Math.max(0, playerPaddle.y - 1); renderPaddles();")
-add_button("Down", "B_down", GRID_OFF_X + 60, GRID_OFF_Y - 60, 50, 50, "playerPaddle.y = Math.min(gridHeight - playerPaddle.height, playerPaddle.y + 1); renderPaddles();")
-add_button("Start", "B_start", GRID_OFF_X + (GRID_WIDTH*PX_SIZE - 100)/2, GRID_OFF_Y + (GRID_HEIGHT*PX_SIZE - 100)/2, 100, 50, "startGame();")
-add_button("Pause", "B_pause", GRID_OFF_X + GRID_WIDTH*PX_SIZE + 10, GRID_OFF_Y + GRID_HEIGHT*PX_SIZE - 110, 100, 50, "pauseGame();")
-add_button("Resume", "B_resume", GRID_OFF_X + GRID_WIDTH*PX_SIZE + 10, GRID_OFF_Y + GRID_HEIGHT*PX_SIZE - 110, 100, 50, "pauseGame();")
-add_button("Restart", "B_restart", GRID_OFF_X + (GRID_WIDTH*PX_SIZE - 100)/2, GRID_OFF_Y + (GRID_HEIGHT*PX_SIZE - 100)/2, 100, 50, "initGame(); startGame(); this.getField('B_restart').display = display.hidden; this.getField('B_pause').display = display.visible;")
-
-# Text fields
-add_text("Use arrow keys or buttons to move paddle", "T_input", GRID_OFF_X, GRID_OFF_Y - 120, GRID_WIDTH*PX_SIZE, 50, "onKeyDown(event);")
-add_text("Player: 0", "T_player_score", GRID_OFF_X + GRID_WIDTH*PX_SIZE + 10, GRID_OFF_Y + GRID_HEIGHT*PX_SIZE - 50, 100, 50, "")
-add_text("AI: 0", "T_ai_score", GRID_OFF_X + GRID_WIDTH*PX_SIZE + 10, GRID_OFF_Y + GRID_HEIGHT*PX_SIZE - 110, 100, 50, "")
-
-# Generate PDF
-filled_pdf = PDF_FILE_TEMPLATE.replace("###FIELDS###", fields_text)
-filled_pdf = filled_pdf.replace("###FIELD_LIST###", " ".join([f"{i} 0 R" for i in field_indexes]))
-filled_pdf = filled_pdf.replace("###GRID_WIDTH###", f"{GRID_WIDTH}")
-filled_pdf = filled_pdf.replace("###GRID_HEIGHT###", f"{GRID_HEIGHT}")
-
-with open("ping_pong_game_optimized.pdf", "w") as pdffile:
-    pdffile.write(filled_pdf)
+print("Enhanced PDF game generated successfully!")
