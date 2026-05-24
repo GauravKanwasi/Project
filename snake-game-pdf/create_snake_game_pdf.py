@@ -1,429 +1,414 @@
-PDF_FILE_TEMPLATE = """
-%PDF-1.6
+"""
+Enhanced PDF Snake Game Generator
+---------------------------------
+Creates an interactive Snake game inside a PDF using Acrobat JavaScript.
 
-% Root
+Requirements:
+- Python 3.x
+- Adobe Acrobat Reader (browser PDF viewers usually block JavaScript)
+"""
+
+GRID_W = 12
+GRID_H = 12
+CELL = 24
+
+PDF_TEMPLATE = r"""%PDF-1.7
+
 1 0 obj
 <<
-  /AcroForm <<
-    /Fields [ ###FIELD_LIST### ]
-  >>
-  /Pages 2 0 R
-  /OpenAction 17 0 R
-  /Type /Catalog
+/Type /Catalog
+/Pages 2 0 R
+/OpenAction 5 0 R
+/AcroForm <<
+/Fields [FIELDS]
+>>
 >>
 endobj
 
 2 0 obj
 <<
-  /Count 1
-  /Kids [
-    16 0 R
-  ]
-  /Type /Pages
->>
-
-%% Annots Page 1 (also used as overall fields list)
-21 0 obj
-[
-  ###FIELD_LIST###
-]
-endobj
-
-###FIELDS###
-
-%% Page 1
-16 0 obj
-<<
-  /Annots 21 0 R
-  /Contents 3 0 R
-  /CropBox [
-    0.0
-    0.0
-    612.0
-    792.0
-  ]
-  /MediaBox [
-    0.0
-    0.0
-    612.0
-  ]
-  /Parent 2 0 R
-  /Resources <<
-  >>
-  /Rotate 0
-  /Type /Page
+/Type /Pages
+/Count 1
+/Kids [3 0 R]
 >>
 endobj
 
 3 0 obj
-<< >>
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 700 700]
+/Annots [ANNOTS]
+/Contents 4 0 R
+>>
+endobj
+
+4 0 obj
+<< /Length 0 >>
 stream
 endstream
 endobj
 
-17 0 obj
+5 0 obj
 <<
-  /JS 42 0 R
-  /S /JavaScript
+/S /JavaScript
+/JS 6 0 R
 >>
 endobj
 
-
-42 0 obj
-<< >>
+6 0 obj
+<< /Length JS_LEN >>
 stream
 
-// Hacky wrapper to work with a callback instead of a string
-function setInterval(cb, ms) {
-    evalStr = "(" + cb.toString() + ")();";
-    return app.setInterval(evalStr, ms);
-}
-
-// Globals
-var gridSize = 20;
-var gridWidth = ###GRID_WIDTH###;
-var gridHeight = ###GRID_HEIGHT###;
+var gridW = """ + str(GRID_W) + r""";
+var gridH = """ + str(GRID_H) + r""";
 
 var snake;
 var food;
+var dx;
+var dy;
 var score;
-var gameInterval;
-
-function initGame() {
-    resetGame();
-    startGame();
-}
-
-function resetGame() {
-    snake = [{x: 5, y: 5, directionX: 1, directionY: 0}];
-    food = generateFood();
-    score = 0;
-}
+var timer;
 
 function startGame() {
-    gameInterval = setInterval(gameLoop, 200);
-    document.addEventListener('keydown', onKeyDown);
+    snake = [{x:2,y:2}];
+    dx = 1;
+    dy = 0;
+    score = 0;
+
+    spawnFood();
+
+    if (timer) {
+        app.clearInterval(timer);
+    }
+
+    timer = app.setInterval("tick()", 250);
+
+    render();
 }
 
-function gameLoop() {
-    var head = {...snake[0]};
-    head.x += head.directionX;
-    head.y += head.directionY;
+function spawnFood() {
+    food = {
+        x: Math.floor(Math.random() * gridW),
+        y: Math.floor(Math.random() * gridH)
+    };
+}
 
-    if (head.x < 0 || head.x >= gridWidth || head.y < 0 || head.y >= gridHeight || checkCollision(head)) {
-        clearInterval(gameInterval);
-        app.alert("Game Over! Your score is: " + score);
+function tick() {
+
+    var head = {
+        x: snake[0].x + dx,
+        y: snake[0].y + dy
+    };
+
+    // Wall collision
+    if (
+        head.x < 0 ||
+        head.y < 0 ||
+        head.x >= gridW ||
+        head.y >= gridH
+    ) {
+        gameOver();
         return;
+    }
+
+    // Self collision
+    for (var i = 0; i < snake.length; i++) {
+        if (
+            snake[i].x == head.x &&
+            snake[i].y == head.y
+        ) {
+            gameOver();
+            return;
+        }
     }
 
     snake.unshift(head);
 
-    if (head.x === food.x && head.y === food.y) {
+    // Eat food
+    if (
+        head.x == food.x &&
+        head.y == food.y
+    ) {
         score += 10;
-        food = generateFood();
+        spawnFood();
     } else {
         snake.pop();
     }
 
-    renderGame();
+    render();
 }
 
-function renderGame() {
-    for (var x = 0; x < gridWidth; x++) {
-        for (var y = 0; y < gridHeight; y++) {
-            set_pixel(x, y, 0);
+function gameOver() {
+    app.clearInterval(timer);
+    app.alert("Game Over! Score: " + score);
+}
+
+function render() {
+
+    // Clear board
+    for (var y = 0; y < gridH; y++) {
+        for (var x = 0; x < gridW; x++) {
+
+            var field = this.getField(
+                "P_" + x + "_" + y
+            );
+
+            field.fillColor = color.gray;
         }
     }
+
+    // Draw snake
     for (var i = 0; i < snake.length; i++) {
-        set_pixel(snake[i].x, snake[i].y, 1);
+
+        var s = snake[i];
+
+        this.getField(
+            "P_" + s.x + "_" + s.y
+        ).fillColor = color.green;
     }
-    set_pixel(food.x, food.y, 2);
-    this.getField("T_score").value = "Score: " + score;
+
+    // Draw food
+    this.getField(
+        "P_" + food.x + "_" + food.y
+    ).fillColor = color.red;
+
+    // Update score
+    this.getField("score").value =
+        "Score: " + score;
 }
 
-function generateFood() {
-    var foodX = Math.floor(Math.random() * gridWidth);
-    var foodY = Math.floor(Math.random() * gridHeight);
-    return {x: foodX, y: foodY};
-}
-
-function checkCollision(head) {
-    for (var i = 1; i < snake.length; i++) {
-        if (head.x === snake[i].x && head.y === snake[i].y) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function onKeyDown(event) {
-    if (event.key === "ArrowLeft" && snake[0].directionX === 0) {
-        snake[0].directionX = -1;
-        snake[0].directionY = 0;
-    }
-
-    if (event.key === "ArrowRight" && snake[0].directionX === 0) {
-        snake[0].directionX = 1;
-        snake[0].directionY = 0;
-    }
-
-    if (event.key === "ArrowUp" && snake[0].directionY === 0) {
-        snake[0].directionX = 0;
-        snake[0].directionY = -1;
-    }
-
-    if (event.key === "ArrowDown" && snake[0].directionY === 0) {
-        snake[0].directionX = 0;
-        snake[0].directionY = 1;
+function left() {
+    if (dx != 1) {
+        dx = -1;
+        dy = 0;
     }
 }
 
-function set_pixel(x, y, state) {
-    if (x < 0 || y < 0 || x >= gridWidth || y >= gridHeight) {
-        return;
+function right() {
+    if (dx != -1) {
+        dx = 1;
+        dy = 0;
     }
-    var field = this.getField(`P_${x}_${y}`);
-    field.fillColor = state === 0 ? color.gray : state === 1 ? color.green : color.red;
 }
 
-// Zoom to fit (on FF)
+function up() {
+    if (dy != -1) {
+        dx = 0;
+        dy = 1;
+    }
+}
+
+function down() {
+    if (dy != 1) {
+        dx = 0;
+        dy = -1;
+    }
+}
+
 app.execMenuItem("FitPage");
 
 endstream
 endobj
 
-
-18 0 obj
-<<
-  /JS 43 0 R
-  /S /JavaScript
->>
-endobj
-
-
-43 0 obj
-<< >>
-stream
-
-
-
-endstream
-endobj
+OBJECTS
 
 trailer
 <<
-  /Root 1 0 R
+/Root 1 0 R
 >>
-
 %%EOF
 """
 
-PIXEL_OBJ = """
-###IDX### obj
+objects = []
+annots = []
+fields = []
+
+obj_id = 10
+
+
+def add_object(content):
+    global obj_id
+
+    objects.append(
+        f"{obj_id} 0 obj\n{content}\nendobj"
+    )
+
+    current = obj_id
+    obj_id += 1
+
+    return current
+
+
+def add_button(name, label, x, y, w, h, js):
+
+    js_stream = add_object(
+        f"<< /Length {len(js)} >>\n"
+        f"stream\n{js}\nendstream"
+    )
+
+    button = f"""
 <<
-  /FT /Btn
-  /Ff 1
-  /MK <<
-    /BG [
-      0.8
-    ]
-    /BC [
-      0 0 0
-    ]
-  >>
-  /Border [ 0 0 1 ]
-  /P 16 0 R
-  /Rect [
-    ###RECT###
-  ]
-  /Subtype /Widget
-  /T (P_###X###_###Y###)
-  /Type /Annot
+/Type /Annot
+/Subtype /Widget
+/FT /Btn
+/T ({name})
+/Rect [{x} {y} {x+w} {y+h}]
+/A <<
+/S /JavaScript
+/JS {js_stream} 0 R
 >>
-endobj
+/MK <<
+/CA ({label})
+>>
+>>
 """
 
-BUTTON_AP_STREAM = """
-###IDX### obj
+    oid = add_object(button)
+
+    annots.append(f"{oid} 0 R")
+    fields.append(f"{oid} 0 R")
+
+
+def add_text(name, value, x, y, w, h):
+
+    text = f"""
 <<
-  /BBox [ 0.0 0.0 ###WIDTH### ###HEIGHT### ]
-  /FormType 1
-  /Matrix [ 1.0 0.0 0.0 1.0 0.0 0.0]
-  /Resources <<
-    /Font <<
-      /HeBo 10 0 R
-    >>
-    /ProcSet [ /PDF /Text ]
-  >>
-  /Subtype /Form
-  /Type /XObject
+/Type /Annot
+/Subtype /Widget
+/FT /Tx
+/T ({name})
+/Rect [{x} {y} {x+w} {y+h}]
+/V ({value})
 >>
-stream
-q
-0.75 g
-0 0 ###WIDTH### ###HEIGHT### re
-f
-Q
-q
-1 1 ###WIDTH### ###HEIGHT### re
-W
-n
-BT
-/HeBo 12 Tf
-0 g
-10 8 Td
-(###TEXT###) Tj
-ET
-Q
-endstream
-endobj
 """
 
-BUTTON_OBJ = """
-###IDX### obj
+    oid = add_object(text)
+
+    annots.append(f"{oid} 0 R")
+    fields.append(f"{oid} 0 R")
+
+
+def add_pixel(x, y):
+
+    px = 80 + x * CELL
+    py = 120 + y * CELL
+
+    pixel = f"""
 <<
-  /A <<
-      /JS ###SCRIPT_IDX### R
-      /S /JavaScript
-    >>
-  /AP <<
-    /N ###AP_IDX### R
-  >>
-  /F 4
-  /FT /Btn
-  /Ff 65536
-  /MK <<
-    /BG [
-      0.75
-    ]
-    /CA (###LABEL###)
-  >>
-  /P 16 0 R
-  /Rect [
-    ###RECT###
-  ]
-  /Subtype /Widget
-  /T (###NAME###)
-  /Type /Annot
+/Type /Annot
+/Subtype /Widget
+/FT /Btn
+/Ff 1
+/T (P_{x}_{y})
+/Rect [{px} {py} {px+CELL} {py+CELL}]
+/MK <<
+/BG [0.8]
 >>
-endobj
-"""
-
-TEXT_OBJ = """
-###IDX### obj
-<<
-    /AA <<
-        /K <<
-            /JS ###SCRIPT_IDX### R
-            /S /JavaScript
-        >>
-    >>
-    /F 4
-    /FT /Tx
-    /MK <<
-    >>
-    /MaxLen 0
-    /P 16 0 R
-    /Rect [
-        ###RECT###
-    ]
-    /Subtype /Widget
-    /T (###NAME###)
-    /V (###LABEL###)
-    /Type /Annot
 >>
-endobj
 """
 
-STREAM_OBJ = """
-###IDX### obj
-<< >>
-stream
-###CONTENT###
-endstream
-endobj
-"""
+    oid = add_object(pixel)
 
-PX_SIZE = 20
-GRID_WIDTH = 20
-GRID_HEIGHT = 20
-GRID_OFF_X = 100
-GRID_OFF_Y = 150
+    annots.append(f"{oid} 0 R")
+    fields.append(f"{oid} 0 R")
 
-fields_text = ""
-field_indexes = []
-obj_idx_ctr = 50
 
-def add_field(field):
-    global fields_text, field_indexes, obj_idx_ctr
-    fields_text += field
-    field_indexes.append(obj_idx_ctr)
-    obj_idx_ctr += 1
+# Create game board
+for y in range(GRID_H):
+    for x in range(GRID_W):
+        add_pixel(x, y)
 
-# Playing field outline
-for x in range(GRID_WIDTH):
-    for y in range(GRID_HEIGHT):
-        # Build object
-        pixel = PIXEL_OBJ
-        pixel = pixel.replace("###IDX###", f"{obj_idx_ctr} 0")
-        c = [0, 0, 0]
-        pixel = pixel.replace("###COLOR###", f"{c[0]} {c[1]} {c[2]}")
-        pixel = pixel.replace("###RECT###", f"{GRID_OFF_X+x*PX_SIZE} {GRID_OFF_Y+y*PX_SIZE} {GRID_OFF_X+x*PX_SIZE+PX_SIZE} {GRID_OFF_Y+y*PX_SIZE+PX_SIZE}")
-        pixel = pixel.replace("###X###", f"{x}")
-        pixel = pixel.replace("###Y###", f"{y}")
 
-        add_field(pixel)
+# Controls
+add_button(
+    "start",
+    "START",
+    420,
+    500,
+    120,
+    40,
+    "startGame();"
+)
 
-def add_button(label, name, x, y, width, height, js):
-    script = STREAM_OBJ
-    script = script.replace("###IDX###", f"{obj_idx_ctr} 0")
-    script = script.replace("###CONTENT###", js)
-    add_field(script)
+add_button(
+    "left",
+    "LEFT",
+    420,
+    420,
+    80,
+    40,
+    "left();"
+)
 
-    ap_stream = BUTTON_AP_STREAM
-    ap_stream = ap_stream.replace("###IDX###", f"{obj_idx_ctr} 0")
-    ap_stream = ap_stream.replace("###TEXT###", label)
-    ap_stream = ap_stream.replace("###WIDTH###", f"{width}")
-    ap_stream = ap_stream.replace("###HEIGHT###", f"{height}")
-    add_field(ap_stream)
+add_button(
+    "right",
+    "RIGHT",
+    510,
+    420,
+    80,
+    40,
+    "right();"
+)
 
-    button = BUTTON_OBJ
-    button = button.replace("###IDX###", f"{obj_idx_ctr} 0")
-    button = button.replace("###SCRIPT_IDX###", f"{obj_idx_ctr-2} 0")
-    button = button.replace("###AP_IDX###", f"{obj_idx_ctr-1} 0")
-    button = button.replace("###NAME###", name if name else f"B_{obj_idx_ctr}")
-    button = button.replace("###RECT###", f"{x} {y} {x + width} {y + height}")
-    add_field(button)
+add_button(
+    "up",
+    "UP",
+    465,
+    470,
+    80,
+    40,
+    "up();"
+)
 
-def add_text(label, name, x, y, width, height, js):
-    script = STREAM_OBJ
-    script = script.replace("###IDX###", f"{obj_idx_ctr} 0")
-    script = script.replace("###CONTENT###", js)
-    add_field(script)
+add_button(
+    "down",
+    "DOWN",
+    465,
+    370,
+    80,
+    40,
+    "down();"
+)
 
-    text = TEXT_OBJ
-    text = text.replace("###IDX###", f"{obj_idx_ctr} 0")
-    text = text.replace("###SCRIPT_IDX###", f"{obj_idx_ctr-1} 0")
-    text = text.replace("###LABEL###", label)
-    text = text.replace("###NAME###", name)
-    text = text.replace("###RECT###", f"{x} {y} {x + width} + {y + height}")
-    add_field(text)
 
-add_button("<", "B_left", GRID_OFF_X + 0, GRID_OFF_Y - 70, 50, 50, "move_left();")
-add_button(">", "B_right", GRID_OFF_X + 60, GRID_OFF_Y - 70, 50, 50, "move_right();")
-add_button("\\\\/", "B_down", GRID_OFF_X + 30, GRID_OFF_Y - 130, 50, 50, "lower_piece();")
-add_button("SPIN", "B_rotate", GRID_OFF_X + 140, GRID_OFF_Y - 70, 50, 50, "rotate_piece();")
+# Score field
+add_text(
+    "score",
+    "Score: 0",
+    420,
+    320,
+    150,
+    30
+)
 
-add_button("Start game", "B_start", GRID_OFF_X + (GRID_WIDTH*PX_SIZE)/2-50, GRID_OFF_Y + (GRID_HEIGHT*PX_SIZE)/2-50, 100, 100, "initGame();")
 
-add_text("Type here for keyboard controls (Arrow Keys)", "T_input", GRID_OFF_X + 0, GRID_OFF_Y - 200, GRID_WIDTH*PX_SIZE, 50, "handle_input(event);")
+# Build final PDF
+final_pdf = PDF_TEMPLATE
 
-add_text("Score: 0", "T_score", GRID_OFF_X + GRID_WIDTH*PX_SIZE+10, GRID_OFF_Y + GRID_HEIGHT*PX_SIZE-50, 100, 50, "")
+final_pdf = final_pdf.replace(
+    "ANNOTS",
+    " ".join(annots)
+)
 
-filled_pdf = PDF_FILE_TEMPLATE.replace("###FIELDS###", fields_text)
-filled_pdf = filled_pdf.replace("###FIELD_LIST###", " ".join([f"{i} 0 R" for i in field_indexes]))
-filled_pdf = filled_pdf.replace("###GRID_WIDTH###", f"{GRID_WIDTH}")
-filled_pdf = filled_pdf.replace("###GRID_HEIGHT###", f"{GRID_HEIGHT}")
+final_pdf = final_pdf.replace(
+    "FIELDS",
+    " ".join(fields)
+)
 
-with open("snake_game.pdf", "w") as pdffile:
-    pdffile.write(filled_pdf)
+final_pdf = final_pdf.replace(
+    "OBJECTS",
+    "\n\n".join(objects)
+)
+
+final_pdf = final_pdf.replace(
+    "JS_LEN",
+    "5000"
+)
+
+
+# Save PDF
+with open("snake_game.pdf", "w", encoding="latin1") as f:
+    f.write(final_pdf)
+
+print("snake_game.pdf created successfully!")
