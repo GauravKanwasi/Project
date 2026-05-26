@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 
-# Conversion functions
+# --- Conversion Functions ---
 def length_conversion(input_value, from_unit, to_unit):
+    if from_unit == to_unit: return input_value
     conversions = {
         'Meters': 1.0,
         'Feet': 3.28084,
@@ -13,6 +14,7 @@ def length_conversion(input_value, from_unit, to_unit):
     return meters * conversions[to_unit]
 
 def weight_conversion(input_value, from_unit, to_unit):
+    if from_unit == to_unit: return input_value
     conversions = {
         'Kilograms': 1.0,
         'Pounds': 2.20462,
@@ -23,6 +25,8 @@ def weight_conversion(input_value, from_unit, to_unit):
     return kg * conversions[to_unit]
 
 def temperature_conversion(input_value, from_unit, to_unit):
+    if from_unit == to_unit: return input_value
+    
     if from_unit == 'Celsius' and to_unit == 'Fahrenheit':
         return input_value * 9/5 + 32
     elif from_unit == 'Fahrenheit' and to_unit == 'Celsius':
@@ -37,13 +41,22 @@ def temperature_conversion(input_value, from_unit, to_unit):
         return (input_value - 273.15) * 9/5 + 32
     return input_value
 
-# Convert function based on user selection
+# --- Main Application Logic ---
 def convert():
     try:
-        input_value = float(entry_input.get())
+        input_text = entry_input.get().strip()
+        if not input_text:
+            messagebox.showwarning("Warning", "Please enter a value to convert.")
+            return
+            
+        input_value = float(input_text)
         from_unit = from_var.get()
         to_unit = to_var.get()
         conversion_type = type_var.get()
+        
+        if not from_unit or not to_unit:
+            messagebox.showwarning("Warning", "Please select both 'From' and 'To' units.")
+            return
         
         if conversion_type == 'Length':
             result = length_conversion(input_value, from_unit, to_unit)
@@ -55,67 +68,66 @@ def convert():
             result_label.config(text="Invalid conversion type")
             return
         
-        result_label.config(text=f"Result: {result:.2f} {to_unit}")
+        result_label.config(text=f"{input_value:g} {from_unit} = {result:.3f} {to_unit}")
+        
     except ValueError:
-        messagebox.showerror("Error", "Please enter a valid number")
+        messagebox.showerror("Error", "Please enter a valid numeric value.")
 
-# Update unit options based on selected type
 def update_units(*args):
-    if type_var.get() == 'Length':
+    selection = type_var.get()
+    if selection == 'Length':
         units = ['Meters', 'Feet', 'Inches', 'Centimeters']
-    elif type_var.get() == 'Weight':
+    elif selection == 'Weight':
         units = ['Kilograms', 'Pounds', 'Grams', 'Ounces']
-    elif type_var.get() == 'Temperature':
+    elif selection == 'Temperature':
         units = ['Celsius', 'Fahrenheit', 'Kelvin']
     else:
         units = []
 
-    from_var.set('')
-    to_var.set('')
-    from_menu['menu'].delete(0, 'end')
-    to_menu['menu'].delete(0, 'end')
+    from_combobox['values'] = units
+    to_combobox['values'] = units
 
-    for unit in units:
-        from_menu['menu'].add_command(label=unit, command=tk._setit(from_var, unit))
-        to_menu['menu'].add_command(label=unit, command=tk._setit(to_var, unit))
+    # Prevent empty string errors by auto-selecting valid defaults
+    if units:
+        from_combobox.current(0)
+        to_combobox.current(1 if len(units) > 1 else 0)
 
-# Create main window
+# --- GUI Setup ---
 root = tk.Tk()
 root.title("Unit Converter")
+root.geometry("350x300")  
+root.resizable(False, False) 
 
-# Conversion type selection
+main_frame = ttk.Frame(root, padding="20 20 20 20")
+main_frame.pack(fill=tk.BOTH, expand=True)
+
 type_var = tk.StringVar(value='Length')
-tk.Label(root, text="Select conversion type:").grid(row=0, column=0, padx=10, pady=10)
-type_menu = tk.OptionMenu(root, type_var, 'Length', 'Weight', 'Temperature', command=update_units)
-type_menu.grid(row=0, column=1, padx=10, pady=10)
-
-# Input value
-tk.Label(root, text="Enter value:").grid(row=1, column=0, padx=10, pady=10)
-entry_input = tk.Entry(root, width=10)
-entry_input.grid(row=1, column=1, padx=10, pady=10)
-
-# From unit selection
-tk.Label(root, text="From unit:").grid(row=2, column=0, padx=10, pady=10)
 from_var = tk.StringVar()
-from_menu = tk.OptionMenu(root, from_var, '')
-from_menu.grid(row=2, column=1, padx=10, pady=10)
-
-# To unit selection
-tk.Label(root, text="To unit:").grid(row=3, column=0, padx=10, pady=10)
 to_var = tk.StringVar()
-to_menu = tk.OptionMenu(root, to_var, '')
-to_menu.grid(row=3, column=1, padx=10, pady=10)
 
-# Convert button
-convert_button = tk.Button(root, text="Convert", command=convert)
-convert_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10)
+ttk.Label(main_frame, text="Category:", font=("Helvetica", 10, "bold")).grid(row=0, column=0, sticky=tk.W, pady=5)
+type_combobox = ttk.Combobox(main_frame, textvariable=type_var, state="readonly", width=18)
+type_combobox['values'] = ('Length', 'Weight', 'Temperature')
+type_combobox.grid(row=0, column=1, pady=5, sticky=tk.E)
+type_combobox.bind('<<ComboboxSelected>>', update_units) 
 
-# Result label
-result_label = tk.Label(root, text="Result: ")
-result_label.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+ttk.Label(main_frame, text="Value:", font=("Helvetica", 10)).grid(row=1, column=0, sticky=tk.W, pady=5)
+entry_input = ttk.Entry(main_frame, width=20)
+entry_input.grid(row=1, column=1, pady=5, sticky=tk.E)
 
-# Initialize options
+ttk.Label(main_frame, text="From Unit:", font=("Helvetica", 10)).grid(row=2, column=0, sticky=tk.W, pady=5)
+from_combobox = ttk.Combobox(main_frame, textvariable=from_var, state="readonly", width=18)
+from_combobox.grid(row=2, column=1, pady=5, sticky=tk.E)
+
+ttk.Label(main_frame, text="To Unit:", font=("Helvetica", 10)).grid(row=3, column=0, sticky=tk.W, pady=5)
+to_combobox = ttk.Combobox(main_frame, textvariable=to_var, state="readonly", width=18)
+to_combobox.grid(row=3, column=1, pady=5, sticky=tk.E)
+
+convert_button = ttk.Button(main_frame, text="Convert", command=convert)
+convert_button.grid(row=4, column=0, columnspan=2, pady=15, sticky=tk.EW)
+
+result_label = ttk.Label(main_frame, text="Result will appear here", font=("Helvetica", 11, "bold"), foreground="#333333")
+result_label.grid(row=5, column=0, columnspan=2, pady=5)
+
 update_units()
-
-# Run main loop
 root.mainloop()
